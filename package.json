@@ -1,0 +1,26 @@
+{
+  "name": "Peroxitracker_Pipeline",
+  "version": "0.1.0",
+  "description": "Peroxitracker_Pipeline",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified! Configure in package.json\" && exit 1"
+  },
+  "dependencies": {
+    "azure": "*",
+    "string": "*",
+    "async": "*"
+  },
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/rainbean/Peroxitracker_Pipeline.git"
+  },
+  "keywords": [
+    "Node.js",
+    "Eclipse",
+    "Nodeclipse"
+  ],
+  "author": "",
+  "license": "MIT",
+  "readmeFilename": "README.md"
+}
