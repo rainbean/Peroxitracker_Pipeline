@@ -10,9 +10,158 @@ var g_blob = azure.createBlobService(g_storageAccount, g_storageAcessKey);
 /**
  * Preprocessing: enhance image's quality  
  */
-function enhanceImage(path, callback) {
+function enhanceImage(plate, callback) {
+  var fs = require('fs');
+  var async = require('async');
   var spawn = require('child_process').spawn;
-  var preprocessor = spawn('java', ['-jar', '../PeroxiTracker_Standalone/PeroJava.jar', path]);
+  
+  // list
+  fs.readdir(g_tmpFolder + plate, function (err, files) {
+    if (err) {
+      console.log('Failed to list directory: ' + plate);
+      return callback(err);
+    }
+    
+    async.each(files, function (file, callback) {
+      var preprocessor = spawn('java', 
+          ['-jar', '../PeroxiTracker_Standalone/PeroJava.jar', // jar path
+           g_tmpFolder + plate + '/' + file]); // input filepath
+
+      // debug purpose
+      preprocessor.stdout.on('data', function (data) {
+        console.log('> ' + data);
+      });
+
+      // debug purpose
+      preprocessor.stderr.on('data', function (data) {
+        console.log('>> ' + data);
+      });
+
+      // handle exit code
+      preprocessor.on('close', function (code) {
+        callback( code !== 0 ? code : null);
+      });
+    }, function(err) {
+      // if any of the saves produced an error, err would equal that error
+      return callback(err, plate);
+    });
+  });
+}
+
+/**
+ * Content screening: count # of cells  
+ */
+function countCells(plate, callback) {
+  var fs = require('fs');
+  var async = require('async');
+  var spawn = require('child_process').spawn;
+  // regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
+  var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
+  
+  // list
+  fs.readdir(g_tmpFolder + plate + '/DAPI', function (err, files) {
+    if (err) {
+      console.log('Failed to list DAPI subfolder of plate: ' + plate);
+      return callback(err);
+    }
+    
+    async.each(files, function (file, callback) {
+      var well = file.match(pattern);
+      if (!well) {
+        // not matched file name, ignore it;
+        console.log('Invalid filename format, ignored: ' + file);
+        return callback(); // no argument imply silent failback to next async.each
+      }
+
+      var preprocessor = spawn('../PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
+          [g_tmpFolder + plate + '/DAPI/' + file, // input file path
+           g_tmpFolder + plate + '/Result/' + well[0] + '_' + well[1] + '_cell_obj_cords.txt']); // output file path
+
+      // debug purpose
+      preprocessor.stdout.on('data', function (data) {
+        console.log('> ' + data);
+      });
+
+      // debug purpose
+      preprocessor.stderr.on('data', function (data) {
+        console.log('>> ' + data);
+      });
+
+      // handle exit code
+      preprocessor.on('close', function (code) {
+        callback( code !== 0 ? code : null);
+      });
+    }, function(err) {
+      // if any of the saves produced an error, err would equal that error
+      return callback(err, plate);
+    });
+  });
+}
+
+/**
+ * Content screening: calculate tophat of wells  
+ */
+function calcTophat(plate, callback) {
+  var fs = require('fs');
+  var async = require('async');
+  var spawn = require('child_process').spawn;
+  // regular express to match 'A - 3(fld 1 wv FITC - FITC).tif', with result 'A' and '3'
+  var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
+  
+  // list
+  fs.readdir(g_tmpFolder + plate + '/FITC', function (err, files) {
+    if (err) {
+      console.log('Failed to list FITC subfolder of plate: ' + plate);
+      return callback(err);
+    }
+    
+    async.map(files, function (file, callback) {
+      var well = file.match(pattern);
+      if (!well) {
+        // not matched file name, ignore it;
+        console.log('Invalid filename format, ignored: ' + file);
+        return callback(); // no argument imply silent success
+      }
+
+      var preprocessor = spawn('../PeroxiTracker_Matlab/onewellTophat.exe', // program path
+          [g_tmpFolder + plate + '/FITC/' + file, // input file path
+           g_tmpFolder + plate + '/Tophat/' + well[0] + '_' + well[1] + '_tophat.mat']); // output tophat file path
+
+      // debug purpose
+      preprocessor.stdout.on('data', function (data) {
+        console.log('> ' + data);
+      });
+
+      // debug purpose
+      preprocessor.stderr.on('data', function (data) {
+        console.log('>> ' + data);
+      });
+
+      // handle exit code
+      preprocessor.on('close', function (code) {
+        callback(null, code);
+      });
+    }, function(err, results) {
+      // if any of the saves produced an error, err would equal that error
+      var found = false;
+      for (var i=0; i<results.length; i+=1) {
+        found |= results[i];
+      }
+      callback(err, plate, found);
+    });
+  });
+}
+
+/**
+ * Content screening: calculate histogram 
+ */
+function calcHistorgram(plate, found, callback) {
+  var fs = require('fs');
+  var async = require('async');
+  var spawn = require('child_process').spawn;
+  var preprocessor = spawn('../PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
+      [g_tmpFolder + plate + '/Tophat', found]); // input path & union result of step 4 
+  // implicit output is Tophat/netHist.mat
 
   // debug purpose
   preprocessor.stdout.on('data', function (data) {
@@ -26,17 +175,60 @@ function enhanceImage(path, callback) {
 
   // handle exit code
   preprocessor.on('close', function (code) {
-    callback( code !== 0 ? code : null);
+    callback(code !== 0 ? code : null, plate);
   });
 }
 
 /**
- * Content screening: Feature set calculation & classification 
+ * Content screening: calculate feature set
  */
-function classifyImage(path, callback) {
+function calcFeature(plate, callback) {
+  var fs = require('fs');
+  var async = require('async');
+  var spawn = require('child_process').spawn;
+  // regular express to match 'A_3_tophat.mat', with result 'A' and '3'
+  var pattern = new RegExp(/^(.+)_(.+)_tophat.mat$/);
   
-}
+  // list
+  fs.readdir(g_tmpFolder + plate + '/Tophat', function (err, files) {
+    if (err) {
+      console.log('Failed to list Tophat subfolder of plate: ' + plate);
+      return callback(err);
+    }
+    
+    async.each(files, function (file, callback) {
+      var well = file.match(pattern);
+      if (!well) {
+        // not matched file name, ignore it;
+        console.log('Invalid filename format, ignored: ' + file);
+        return callback(); // no argument imply silent failback to next async.each
+      }
 
+      var preprocessor = spawn('../PeroxiTracker_Matlab/onewellFeatGen.exe', // program path
+          [g_tmpFolder + plate + '/Tophat/' + file, // input file path
+           g_tmpFolder + plate + '/Result/' + well[0] + '_' + well[1] + '_feature.txt', // output file path
+           g_tmpFolder + plate + '/Tophat/netHist.mat']); // input file from implicit output of step 5 
+
+      // debug purpose
+      preprocessor.stdout.on('data', function (data) {
+        console.log('> ' + data);
+      });
+
+      // debug purpose
+      preprocessor.stderr.on('data', function (data) {
+        console.log('>> ' + data);
+      });
+
+      // handle exit code
+      preprocessor.on('close', function (code) {
+        callback( code !== 0 ? code : null);
+      });
+    }, function(err) {
+      // if any of the saves produced an error, err would equal that error
+      return callback(err, plate);
+    });
+  });
+}
 
 /**
  * Archive result back to online storage, and mark file processed
@@ -46,44 +238,27 @@ function feedbackBlob(path, callback) {
 }
 
 /**
- * Process a plate 
+ * After images of a plate has been downloaded to local disk, process these images 
  */
 function processPlate(plate) {
   var async = require('async');
 
-  // step 1: enhance FITC files and save to FITC folder
-  
-  // step 2: enhance DAPI files and save to DAPI folder
-  
-  // step 3: count # of cells
-  
-  // step 4: calculate tophat of wells
-  
-  // step 5: calculate histogram
-  
-  // step 6: calculate feature set 
-  
-  // step 7: consolidate CSV file
-  
-  
-  /*
-  async.series([
+  async.waterfall([
       function(callback) {
-        enhanceImage(g_tmpFolder + blob.blob, callback);
-        //listAzureBlobs();
-      //enhanceImage('/tmp/Sandbox/PBD GFP-Hoechst_LOPAC_2_1/A - 1(fld 1 wv DAPI - DAPI).tif');
-
+        // step 1: enhance FITC files and save to FITC folder
+        // step 2: enhance DAPI files and save to DAPI folder
+        enhanceImage(plate, callback);
       },
-      function(callback) {
-        // do some more stuff ...
-        callback(null, 'two');
-      }
+      countCells, // step 3: count # of cells
+      calcTophat, // step 4: calculate tophat of wells
+      calcHistorgram, // step 5: calculate histogram
+      calcFeature, // step 6: calculate feature set
+      //genCSV, // step 7: consolidate CSV file
     ],
-    function(err, results){
-        // results is now equal to ['one', 'two']
-    }
-  );
-  */
+    // optional callback
+    function(err, results) {
+      // results is now equal to ['one', 'two']
+    });
 }
 
 /**
@@ -161,3 +336,8 @@ function main() {
 }
 
 main();
+/*
+enhanceImage('LOPAC', function (err) {
+  console.log(err);
+});
+*/
