@@ -3,7 +3,7 @@ var g_storageAccount = 'bioimage';
 var g_storageAcessKey = 't2cCFG4nKcwSp4NrnghpI9fnZZ3hR8YvEYshRocCAzXJ5u3dSEx+b5sA05URmKk1MOFwVwStHa+d1la6TMauxA==';
 var g_tmpFolder = '/tmp/';
 var g_container = 'images';
-
+var g_currenency = 2;
 var azure = require('azure');
 var g_blob = azure.createBlobService(g_storageAccount, g_storageAcessKey);
 
@@ -24,7 +24,7 @@ function enhanceImage(plate, callback) {
       return callback(err);
     }
     
-    async.eachLimit(files, 2, function (file, callback) {
+    async.eachLimit(files, g_currenency, function (file, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
@@ -73,7 +73,7 @@ function countCells(plate, callback) {
       return callback(err);
     }
     
-    async.eachLimit(files, 2, function (file, callback) {
+    async.eachLimit(files, g_currenency, function (file, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
@@ -123,7 +123,7 @@ function calcTophat(plate, callback) {
       return callback(err);
     }
     
-    async.mapLimit(files, 2, function (file, callback) {
+    async.mapLimit(files, g_currenency, function (file, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
@@ -204,7 +204,7 @@ function calcFeature(plate, callback) {
       return callback(err);
     }
     
-    async.eachLimit(files, 2, function (file, callback) {
+    async.eachLimit(files, g_currenency, function (file, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
@@ -301,7 +301,7 @@ function fetchPlate(plate) {
     });
 
     // Async download file in parallel
-    async.mapLimit(blobs, 2, function (blob, callback) {
+    async.mapLimit(blobs, g_currenency, function (blob, callback) {
       //console.log(blob.name);
       //console.log(blob.metadata);
       //console.log(blob.properties);
