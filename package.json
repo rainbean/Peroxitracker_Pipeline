@@ -9,7 +9,7 @@
   "dependencies": {
     "azure": "*",
     "string": "*",
-    "async": "*"
+    "async": "*",
   },
   "repository": {
     "type" : "git",

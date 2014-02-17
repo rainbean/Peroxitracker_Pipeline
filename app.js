@@ -14,29 +14,37 @@ function enhanceImage(plate, callback) {
   var fs = require('fs');
   var async = require('async');
   var spawn = require('child_process').spawn;
+  //regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
+  var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
   // list
   fs.readdir(g_tmpFolder + plate, function (err, files) {
     if (err) {
-      console.log('Failed to list directory: ' + plate);
+      console.log('Failed to list DAPI subfolder of plate: ' + plate);
       return callback(err);
     }
     
-    async.each(files, function (file, callback) {
+    async.eachLimit(files, 2, function (file, callback) {
+      var well = file.match(pattern);
+      if (!well) {
+        // not matched file name, ignore it;
+        return callback(); // no argument imply silent failback to next async.each
+      }
+
       var preprocessor = spawn('java', 
           ['-jar', '../PeroxiTracker_Standalone/PeroJava.jar', // jar path
            g_tmpFolder + plate + '/' + file]); // input filepath
-
+  
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
         console.log('> ' + data);
       });
-
+  
       // debug purpose
       preprocessor.stderr.on('data', function (data) {
         console.log('>> ' + data);
       });
-
+  
       // handle exit code
       preprocessor.on('close', function (code) {
         callback( code !== 0 ? code : null);
@@ -65,7 +73,7 @@ function countCells(plate, callback) {
       return callback(err);
     }
     
-    async.each(files, function (file, callback) {
+    async.eachLimit(files, 2, function (file, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
@@ -75,7 +83,7 @@ function countCells(plate, callback) {
 
       var preprocessor = spawn('../PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
           [g_tmpFolder + plate + '/DAPI/' + file, // input file path
-           g_tmpFolder + plate + '/Result/' + well[0] + '_' + well[1] + '_cell_obj_cords.txt']); // output file path
+           g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_cell_obj_cords.txt']); // output file path
 
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
@@ -115,7 +123,7 @@ function calcTophat(plate, callback) {
       return callback(err);
     }
     
-    async.map(files, function (file, callback) {
+    async.mapLimit(files, 2, function (file, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
@@ -125,7 +133,7 @@ function calcTophat(plate, callback) {
 
       var preprocessor = spawn('../PeroxiTracker_Matlab/onewellTophat.exe', // program path
           [g_tmpFolder + plate + '/FITC/' + file, // input file path
-           g_tmpFolder + plate + '/Tophat/' + well[0] + '_' + well[1] + '_tophat.mat']); // output tophat file path
+           g_tmpFolder + plate + '/Tophat/' + well[1] + '_' + well[2] + '_tophat.mat']); // output tophat file path
 
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
@@ -196,7 +204,7 @@ function calcFeature(plate, callback) {
       return callback(err);
     }
     
-    async.each(files, function (file, callback) {
+    async.eachLimit(files, 2, function (file, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
@@ -206,7 +214,7 @@ function calcFeature(plate, callback) {
 
       var preprocessor = spawn('../PeroxiTracker_Matlab/onewellFeatGen.exe', // program path
           [g_tmpFolder + plate + '/Tophat/' + file, // input file path
-           g_tmpFolder + plate + '/Result/' + well[0] + '_' + well[1] + '_feature.txt', // output file path
+           g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_feature.txt', // output file path
            g_tmpFolder + plate + '/Tophat/netHist.mat']); // input file from implicit output of step 5 
 
       // debug purpose
@@ -284,12 +292,16 @@ function fetchPlate(plate) {
     // create temp folder
     fs.exists(g_tmpFolder + plate, function (exists) {
       if (!exists) {
-        fs.mkdir(g_tmpFolder + plate);
+        fs.mkdirSync(g_tmpFolder + plate);
+        fs.mkdirSync(g_tmpFolder + plate + '/DAPI');
+        fs.mkdirSync(g_tmpFolder + plate + '/FITC');
+        fs.mkdirSync(g_tmpFolder + plate + '/Tophat');
+        fs.mkdirSync(g_tmpFolder + plate + '/Result');
       }
     });
-    
+
     // Async download file in parallel
-    async.map(blobs, function (blob, callback) {
+    async.mapLimit(blobs, 2, function (blob, callback) {
       //console.log(blob.name);
       //console.log(blob.metadata);
       //console.log(blob.properties);
@@ -298,8 +310,16 @@ function fetchPlate(plate) {
         return callback(); // ignore this file silently
       }
       
-      // fetch file to local temporary storage
-      g_blob.getBlobToFile(g_container, blob.name, g_tmpFolder + blob.name, callback);
+      fs.stat(g_tmpFolder + blob.name, function(err, stats) {
+        if (err || stats.size != blob.properties['content-length']) {
+          // file not ready, fetch file to local temporary storage
+          console.log('Download ' + blob.name);
+          g_blob.getBlobToFile(g_container, blob.name, g_tmpFolder + blob.name, callback);
+        } else {
+          return callback(); // skip file download
+        }
+      });
+      
     }, function (err, results) {
       if (err) {
         console.error('Failed to fetch plate image: ' + error);
@@ -314,13 +334,15 @@ function fetchPlate(plate) {
 /**
  *  main function
  */
-function main() {  
+function main() {
+  console.log('Fetching plate.json ...');
   // fetch plate list to be processed
   g_blob.getBlobToFile(g_container, 'plate.json', g_tmpFolder + 'plate.json', function (error, blob) {
     if (error) {
       console.log('No plate list to be processed, or error occured to fetch it: ' + error);
       return;
     }
+    console.log('plate.json fetched');
     
     var plates = require(g_tmpFolder + 'plate.json');
     if (!plates || !Array.isArray(plates)) {
@@ -336,8 +358,4 @@ function main() {
 }
 
 main();
-/*
-enhanceImage('LOPAC', function (err) {
-  console.log(err);
-});
-*/
+
