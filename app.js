@@ -1,11 +1,15 @@
-// global variables
+// global configuration
 var g_storageAccount = 'bioimage';
 var g_storageAcessKey = 't2cCFG4nKcwSp4NrnghpI9fnZZ3hR8YvEYshRocCAzXJ5u3dSEx+b5sA05URmKk1MOFwVwStHa+d1la6TMauxA==';
 var g_tmpFolder = '/tmp/';
 var g_container = 'images';
 var g_currenency = 2;
+
+// global variables
 var azure = require('azure');
 var g_blob = azure.createBlobService(g_storageAccount, g_storageAcessKey);
+var log4js = require('log4js');
+log4js.replaceConsole();
 
 /**
  * Preprocessing: enhance image's quality  
@@ -22,7 +26,7 @@ function enhanceImage(plate, callback) {
   // list
   fs.readdir(g_tmpFolder + plate, function (err, files) {
     if (err) {
-      console.log('Failed to list DAPI subfolder of plate: ' + plate);
+      console.error('Failed to list DAPI subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -40,12 +44,12 @@ function enhanceImage(plate, callback) {
   
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
-        console.log('> ' + data);
+        console.debug(' ' + data);
       });
   
       // debug purpose
       preprocessor.stderr.on('data', function (data) {
-        console.log('>> ' + data);
+        console.debug('>> ' + data);
       });
   
       // handle exit code
@@ -74,7 +78,7 @@ function countCells(plate, callback) {
   // list
   fs.readdir(g_tmpFolder + plate + '/DAPI', function (err, files) {
     if (err) {
-      console.log('Failed to list DAPI subfolder of plate: ' + plate);
+      console.error('Failed to list DAPI subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -82,7 +86,7 @@ function countCells(plate, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
-        console.log('Invalid filename format, ignored: ' + file);
+        console.warn('Invalid filename format, ignored: ' + file);
         return callback(); // no argument imply silent failback to next async.each
       }
 
@@ -93,12 +97,12 @@ function countCells(plate, callback) {
       
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
-        console.log('> ' + data);
+        console.debug('> ' + data);
       });
 
       // debug purpose
       preprocessor.stderr.on('data', function (data) {
-        console.log('>> ' + data);
+        console.debug('>> ' + data);
       });
 
       // handle exit code
@@ -127,7 +131,7 @@ function calcTophat(plate, callback) {
   // list
   fs.readdir(g_tmpFolder + plate + '/FITC', function (err, files) {
     if (err) {
-      console.log('Failed to list FITC subfolder of plate: ' + plate);
+      console.error('Failed to list FITC subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -146,12 +150,12 @@ function calcTophat(plate, callback) {
       
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
-        console.log('> ' + data);
+        console.debug('> ' + data);
       });
 
       // debug purpose
       preprocessor.stderr.on('data', function (data) {
-        console.log('>> ' + data);
+        console.debug('>> ' + data);
       });
 
       // handle exit code
@@ -186,12 +190,12 @@ function calcHistorgram(plate, found, callback) {
 
   // debug purpose
   preprocessor.stdout.on('data', function (data) {
-    console.log('> ' + data);
+    console.debug('> ' + data);
   });
 
   // debug purpose
   preprocessor.stderr.on('data', function (data) {
-    console.log('>> ' + data);
+    console.debug('>> ' + data);
   });
 
   // handle exit code
@@ -215,7 +219,7 @@ function calcFeature(plate, callback) {
   // list
   fs.readdir(g_tmpFolder + plate + '/Tophat', function (err, files) {
     if (err) {
-      console.log('Failed to list Tophat subfolder of plate: ' + plate);
+      console.error('Failed to list Tophat subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -223,7 +227,7 @@ function calcFeature(plate, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
-        console.log('Invalid filename format, ignored: ' + file);
+        console.warn('Invalid filename format, ignored: ' + file);
         return callback(); // no argument imply silent failback to next async.each
       }
 
@@ -235,12 +239,12 @@ function calcFeature(plate, callback) {
       
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
-        console.log('> ' + data);
+        console.debug('> ' + data);
       });
 
       // debug purpose
       preprocessor.stderr.on('data', function (data) {
-        console.log('>> ' + data);
+        console.debug('>> ' + data);
       });
 
       // handle exit code
@@ -355,14 +359,14 @@ function main() {
   // fetch plate list to be processed
   g_blob.getBlobToFile(g_container, 'plate.json', g_tmpFolder + 'plate.json', function (error, blob) {
     if (error) {
-      console.log('No plate list to be processed, or error occured to fetch it: ' + error);
+      console.error('No plate list to be processed, or error occured to fetch it: ' + error);
       return;
     }
     console.log('plate.json fetched');
     
     var plates = require(g_tmpFolder + 'plate.json');
     if (!plates || !Array.isArray(plates)) {
-      console.log('failed to load plate.json');
+      console.error('failed to load plate.json');
       return;
     }
     

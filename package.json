@@ -10,6 +10,7 @@
     "azure": "*",
     "string": "*",
     "async": "*",
+    "log4js": "*"
   },
   "repository": {
     "type" : "git",
