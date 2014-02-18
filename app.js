@@ -286,6 +286,7 @@ function processPlate(plate) {
     // optional callback
     function(err, results) {
       // results is now equal to ['one', 'two']
+      console.log('>>>>>>>>>> Plate process complete: ' + plate);
     });
 }
 
