@@ -17,6 +17,8 @@ function enhanceImage(plate, callback) {
   //regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
+  console.log('<===================== Step 1&2: Enhance Image Quality =================>');
+  
   // list
   fs.readdir(g_tmpFolder + plate, function (err, files) {
     if (err) {
@@ -34,6 +36,7 @@ function enhanceImage(plate, callback) {
       var preprocessor = spawn('java', 
           ['-jar', '../PeroxiTracker_Standalone/PeroJava.jar', // jar path
            g_tmpFolder + plate + '/' + file]); // input filepath
+      console.log('>>> Processing: ' + file);
   
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
@@ -66,6 +69,8 @@ function countCells(plate, callback) {
   // regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
+  console.log('<===================== Step 3: Content screening: count # of cells =================>');
+  
   // list
   fs.readdir(g_tmpFolder + plate + '/DAPI', function (err, files) {
     if (err) {
@@ -84,7 +89,8 @@ function countCells(plate, callback) {
       var preprocessor = spawn('../PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
           [g_tmpFolder + plate + '/DAPI/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_cell_obj_cords.txt']); // output file path
-
+      console.log('>>> Processing: ' + file);
+      
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
         console.log('> ' + data);
@@ -116,6 +122,8 @@ function calcTophat(plate, callback) {
   // regular express to match 'A - 3(fld 1 wv FITC - FITC).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
+  console.log('<===================== Step 4: Content screening: calculate tophat of wells =================>');
+
   // list
   fs.readdir(g_tmpFolder + plate + '/FITC', function (err, files) {
     if (err) {
@@ -134,7 +142,8 @@ function calcTophat(plate, callback) {
       var preprocessor = spawn('../PeroxiTracker_Matlab/onewellTophat.exe', // program path
           [g_tmpFolder + plate + '/FITC/' + file, // input file path
            g_tmpFolder + plate + '/Tophat/' + well[1] + '_' + well[2] + '_tophat.mat']); // output tophat file path
-
+      console.log('>>> Processing: ' + file);
+      
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
         console.log('> ' + data);
@@ -167,9 +176,13 @@ function calcHistorgram(plate, found, callback) {
   var fs = require('fs');
   var async = require('async');
   var spawn = require('child_process').spawn;
+  
+  console.log('<===================== Step 5: Content screening: calculate histogram =================>');
+
   var preprocessor = spawn('../PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
       [g_tmpFolder + plate + '/Tophat', found]); // input path & union result of step 4 
   // implicit output is Tophat/netHist.mat
+  console.log('>>> Processing with found: ' + found);
 
   // debug purpose
   preprocessor.stdout.on('data', function (data) {
@@ -196,6 +209,8 @@ function calcFeature(plate, callback) {
   var spawn = require('child_process').spawn;
   // regular express to match 'A_3_tophat.mat', with result 'A' and '3'
   var pattern = new RegExp(/^(.+)_(.+)_tophat.mat$/);
+
+  console.log('<===================== Step 6: Content screening: calculate feature set =================>');
   
   // list
   fs.readdir(g_tmpFolder + plate + '/Tophat', function (err, files) {
@@ -216,7 +231,8 @@ function calcFeature(plate, callback) {
           [g_tmpFolder + plate + '/Tophat/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_feature.txt', // output file path
            g_tmpFolder + plate + '/Tophat/netHist.mat']); // input file from implicit output of step 5 
-
+      console.log('>>> Processing: ' + file);
+      
       // debug purpose
       preprocessor.stdout.on('data', function (data) {
         console.log('> ' + data);
