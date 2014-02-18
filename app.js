@@ -322,7 +322,7 @@ function genCSV(plate, callback) {
           arr = arr.concat(features);
           
           // convert to CSV format
-          fs.appendFile(g_tmpFolder + plate + '.csv', S(arr).toCSV().s + '\n');
+          fs.appendFileSync(g_tmpFolder + plate + '.csv', S(arr).toCSV().s + '\n');
           
           // iterate next file
           callback();
@@ -345,7 +345,7 @@ function feedbackBlob(plate, callback) {
       return callback(err);
     }
     
-    console.log('CSV result uploaded: ' + blob);
+    console.log('CSV result uploaded');
     callback();
   });
 }
@@ -371,8 +371,11 @@ function processPlate(plate) {
     ],
     // optional callback
     function(err, results) {
-      // results is now equal to ['one', 'two']
-      console.log('>>> Plate process complete: ' + plate);
+      if (err) {
+        console.error('Failed to complete plate, error: ' + err);
+        return;
+      }
+      console.log('>>>>>>> Plate process complete: ' + plate);
     });
 }
 
@@ -397,15 +400,13 @@ function fetchPlate(plate) {
     }
     
     // create temp folder
-    fs.exists(g_tmpFolder + plate, function (exists) {
-      if (!exists) {
-        fs.mkdirSync(g_tmpFolder + plate);
-        fs.mkdirSync(g_tmpFolder + plate + '/DAPI');
-        fs.mkdirSync(g_tmpFolder + plate + '/FITC');
-        fs.mkdirSync(g_tmpFolder + plate + '/Tophat');
-        fs.mkdirSync(g_tmpFolder + plate + '/Result');
-      }
-    });
+    if (!fs.existsSync(g_tmpFolder + plate)) {
+      fs.mkdirSync(g_tmpFolder + plate);
+      fs.mkdirSync(g_tmpFolder + plate + '/DAPI');
+      fs.mkdirSync(g_tmpFolder + plate + '/FITC');
+      fs.mkdirSync(g_tmpFolder + plate + '/Tophat');
+      fs.mkdirSync(g_tmpFolder + plate + '/Result');
+    }
 
     // Async download file in parallel
     async.mapLimit(blobs, g_currenency, function (blob, callback) {
@@ -442,6 +443,13 @@ function fetchPlate(plate) {
  *  main function
  */
 function main() {
+  var fs = require('fs');
+  
+  // create temp folder
+  if (!fs.existsSync(g_tmpFolder)) {
+    fs.mkdirSync(g_tmpFolder);
+  }
+  
   console.log('Fetching plate.json ...');
   // fetch plate list to be processed
   g_blob.getBlobToFile(g_container, 'plate.json', g_tmpFolder + 'plate.json', function (error, blob) {
