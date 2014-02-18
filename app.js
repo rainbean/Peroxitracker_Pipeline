@@ -258,11 +258,96 @@ function calcFeature(plate, callback) {
   });
 }
 
+
+function getFileLines(path, callback) {
+  var fs = require('fs');
+  var lines = 0;
+  fs.createReadStream(path).on('data', function(chunk) {
+    for (var i=0; i < chunk.length; i+=1) {
+      if (chunk[i] === 10) {
+        lines++; // line feed
+      }
+    }
+  }).on('end', function() {
+    callback(lines);
+  });
+}
+
+
+/**
+ * Content screening: Consolidate CSV file
+ */
+function genCSV(plate, callback) {
+  var fs = require('fs');
+  var S = require('string');
+  var async = require('async');
+  //regular express to match 'A_1_feature.txt', with result 'A' and '1'
+  var pattern = new RegExp(/^(.+)_(.+)_feature.txt$/);
+  
+  console.log('<=== Step 7: Consolidate CSV file ===>');
+  
+  // unlink file first
+  fs.unlink(g_tmpFolder + plate + '.csv', function(err) {});
+  
+  // list
+  fs.readdir(g_tmpFolder + plate + '/Result', function (err, files) {
+    if (err) {
+      console.error('Failed to list Result subfolder of plate: ' + plate);
+      return callback(err);
+    }
+    
+    // iterate file list
+    async.each(files, function (file, callback) {
+      var well = file.match(pattern);
+      if (!well) {
+        // not matched file name, ignore it;
+        return callback();
+      }
+
+      // well's data in array
+      var arr = [];
+      arr.push(well[1]); // row: A-AF
+      arr.push(well[2]); // column 1-48
+
+      getFileLines(g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_cell_obj_cords.txt', function(lines) {
+        arr.push(lines); // # of cells
+        
+        fs.readFile(g_tmpFolder + plate + '/Result/' + file, function(err, data) {
+          if (err) {
+            console.error('Failed to read feature: ' + file);
+            return callback(err);
+          }
+          
+          var features = S(data).trim().split('  ');
+          arr = arr.concat(features);
+          
+          // convert to CSV format
+          fs.appendFile(g_tmpFolder + plate + '.csv', S(arr).toCSV().s + '\n');
+          
+          // iterate next file
+          callback();
+        }); // end of fs.readFile
+      }); // end of getFileLines
+    }, function(err) {
+      // if any of the saves produced an error, err would equal that error
+      return callback(err, plate);
+    }); // end of async.each
+  }); // end of file.readdir
+}
+
 /**
  * Archive result back to online storage, and mark file processed
  */
-function feedbackBlob(path, callback) {
-  
+function feedbackBlob(plate, callback) {
+  g_blob.putBlockBlobFromFile(g_container, plate + '.csv', g_tmpFolder + plate + '.csv', function (err, blob) {
+    if (err) {
+      console.error('Failed to upload CSV file');
+      return callback(err);
+    }
+    
+    console.log('CSV result uploaded: ' + blob);
+    callback();
+  });
 }
 
 /**
@@ -281,7 +366,8 @@ function processPlate(plate) {
       calcTophat, // step 4: calculate tophat of wells
       calcHistorgram, // step 5: calculate histogram
       calcFeature, // step 6: calculate feature set
-      //genCSV, // step 7: consolidate CSV file
+      genCSV, // step 7: consolidate CSV file
+      feedbackBlob // upload result back to Azure blob
     ],
     // optional callback
     function(err, results) {
@@ -375,7 +461,6 @@ function main() {
       fetchPlate(plates[i]);
     }
   });
-  
 }
 
 main();
