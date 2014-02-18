@@ -21,7 +21,7 @@ function enhanceImage(plate, callback) {
   //regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
-  console.log('<===================== Step 1&2: Enhance Image Quality =================>');
+  console.log('<=== Step 1&2: Enhance Image Quality ===>');
   
   // list
   fs.readdir(g_tmpFolder + plate, function (err, files) {
@@ -73,7 +73,7 @@ function countCells(plate, callback) {
   // regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
-  console.log('<===================== Step 3: Content screening: count # of cells =================>');
+  console.log('<=== Step 3: Content screening: count # of cells ===>');
   
   // list
   fs.readdir(g_tmpFolder + plate + '/DAPI', function (err, files) {
@@ -126,7 +126,7 @@ function calcTophat(plate, callback) {
   // regular express to match 'A - 3(fld 1 wv FITC - FITC).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
-  console.log('<===================== Step 4: Content screening: calculate tophat of wells =================>');
+  console.log('<=== Step 4: Content screening: calculate tophat of wells ===>');
 
   // list
   fs.readdir(g_tmpFolder + plate + '/FITC', function (err, files) {
@@ -181,7 +181,7 @@ function calcHistorgram(plate, found, callback) {
   var async = require('async');
   var spawn = require('child_process').spawn;
   
-  console.log('<===================== Step 5: Content screening: calculate histogram =================>');
+  console.log('<=== Step 5: Content screening: calculate histogram ===>');
 
   var preprocessor = spawn('../PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
       [g_tmpFolder + plate + '/Tophat', found]); // input path & union result of step 4 
@@ -214,7 +214,7 @@ function calcFeature(plate, callback) {
   // regular express to match 'A_3_tophat.mat', with result 'A' and '3'
   var pattern = new RegExp(/^(.+)_(.+)_tophat.mat$/);
 
-  console.log('<===================== Step 6: Content screening: calculate feature set =================>');
+  console.log('<=== Step 6: Content screening: calculate feature set ===>');
   
   // list
   fs.readdir(g_tmpFolder + plate + '/Tophat', function (err, files) {
@@ -286,7 +286,7 @@ function processPlate(plate) {
     // optional callback
     function(err, results) {
       // results is now equal to ['one', 'two']
-      console.log('>>>>>>>>>> Plate process complete: ' + plate);
+      console.log('>>> Plate process complete: ' + plate);
     });
 }
 
