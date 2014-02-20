@@ -14,19 +14,19 @@ var credential = azure.createCertificateCloudCredentials({
   pem: pem
 });
 
-var vm = azure.createComputeManagementClient(credential);
+var client = azure.createComputeManagementClient(credential);
 
 
 // get service detail, which we need deployment name
-vm.hostedServices.getDetailed('Peroxitracker', function(err, data) {
+client.hostedServices.getDetailed('Peroxitracker', function(err, data) {
   if (err) {
     console.log(err);
     process.exit(1);
   }
   
   //shutdown this compute node
-  vm.virtualMachines.shutdown('Peroxitracker', data.deployments[0].name,
-      'node1', {PostShutdownAction: 'StoppedDeallocated'}, function (err) {
+  client.virtualMachines.shutdown('Peroxitracker', data.deployments[0].name,
+      'node1', {postShutdownAction: 'StoppedDeallocated'}, function (err) {
     if (err) {
       console.error(err);
     }

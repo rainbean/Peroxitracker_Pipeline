@@ -468,7 +468,7 @@ function shutdown() {
     
     //shutdown this compute node
     client.virtualMachines.shutdown(g_serviceName, data.deployments[0].name,
-        os.hostname(), {PostShutdownAction: 'StoppedDeallocated'}, function (err) {
+        os.hostname(), {postShutdownAction: 'StoppedDeallocated'}, function (err) {
       if (err) {
         console.error(err);
       }
