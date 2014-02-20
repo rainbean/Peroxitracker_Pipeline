@@ -460,7 +460,7 @@ function shutdown() {
   var client = mc.createComputeManagementClient(credential);
   
   // get service detail, which we need deployment name
-  vm.hostedServices.getDetailed(g_serviceName, function(err, data) {
+  client.hostedServices.getDetailed(g_serviceName, function(err, data) {
     if (err) {
       console.log(err);
       process.exit(1);
