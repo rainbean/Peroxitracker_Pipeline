@@ -510,5 +510,5 @@ function main() {
   });
 }
 
-main(); 
+main();
 
