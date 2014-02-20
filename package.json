@@ -9,6 +9,7 @@
   "dependencies": {
     "azure": "*",
     "azure-mgmt-compute": "*",
+    "node-windows": "*",
     "string": "*",
     "async": "*",
     "log4js": "*"
