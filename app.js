@@ -3,6 +3,9 @@ var g_storageAccount = 'bioimage';
 var g_storageAcessKey = 't2cCFG4nKcwSp4NrnghpI9fnZZ3hR8YvEYshRocCAzXJ5u3dSEx+b5sA05URmKk1MOFwVwStHa+d1la6TMauxA==';
 var g_tmpFolder = '/tmp/';
 var g_container = 'images';
+var g_subscriberID = '3f5b2a4b-ea60-4b1c-b36b-c85001f46ac8';
+var g_serviceName = 'Peroxitracker';
+var g_deploymentName = 'TestMatlab';
 var g_currenency = 2;
 
 // global variables
@@ -37,23 +40,23 @@ function enhanceImage(plate, callback) {
         return callback(); // no argument imply silent failback to next async.each
       }
 
-      var preprocessor = spawn('java', 
+      var fork = spawn('java', 
           ['-jar', '../PeroxiTracker_Standalone/PeroJava.jar', // jar path
            g_tmpFolder + plate + '/' + file]); // input filepath
       console.log('>>> Processing: ' + file);
   
       // debug purpose
-      preprocessor.stdout.on('data', function (data) {
+      fork.stdout.on('data', function (data) {
         console.debug(' ' + data);
       });
   
       // debug purpose
-      preprocessor.stderr.on('data', function (data) {
+      fork.stderr.on('data', function (data) {
         console.debug('>> ' + data);
       });
   
       // handle exit code
-      preprocessor.on('close', function (code) {
+      fork.on('close', function (code) {
         callback( code !== 0 ? code : null);
       });
     }, function(err) {
@@ -90,23 +93,23 @@ function countCells(plate, callback) {
         return callback(); // no argument imply silent failback to next async.each
       }
 
-      var preprocessor = spawn('../PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
+      var fork = spawn('../PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
           [g_tmpFolder + plate + '/DAPI/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_cell_obj_cords.txt']); // output file path
       console.log('>>> Processing: ' + file);
       
       // debug purpose
-      preprocessor.stdout.on('data', function (data) {
+      fork.stdout.on('data', function (data) {
         console.debug('> ' + data);
       });
 
       // debug purpose
-      preprocessor.stderr.on('data', function (data) {
+      fork.stderr.on('data', function (data) {
         console.debug('>> ' + data);
       });
 
       // handle exit code
-      preprocessor.on('close', function (code) {
+      fork.on('close', function (code) {
         callback( code !== 0 ? code : null);
       });
     }, function(err) {
@@ -143,23 +146,23 @@ function calcTophat(plate, callback) {
         return callback(); // no argument imply silent success
       }
 
-      var preprocessor = spawn('../PeroxiTracker_Matlab/onewellTophat.exe', // program path
+      var fork = spawn('../PeroxiTracker_Matlab/onewellTophat.exe', // program path
           [g_tmpFolder + plate + '/FITC/' + file, // input file path
            g_tmpFolder + plate + '/Tophat/' + well[1] + '_' + well[2] + '_tophat.mat']); // output tophat file path
       console.log('>>> Processing: ' + file);
       
       // debug purpose
-      preprocessor.stdout.on('data', function (data) {
+      fork.stdout.on('data', function (data) {
         console.debug('> ' + data);
       });
 
       // debug purpose
-      preprocessor.stderr.on('data', function (data) {
+      fork.stderr.on('data', function (data) {
         console.debug('>> ' + data);
       });
 
       // handle exit code
-      preprocessor.on('close', function (code) {
+      fork.on('close', function (code) {
         callback(null, code);
       });
     }, function(err, results) {
@@ -183,23 +186,23 @@ function calcHistorgram(plate, found, callback) {
   
   console.log('<=== Step 5: Content screening: calculate histogram ===>');
 
-  var preprocessor = spawn('../PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
+  var fork = spawn('../PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
       [g_tmpFolder + plate + '/Tophat', found]); // input path & union result of step 4 
   // implicit output is Tophat/netHist.mat
   console.log('>>> Processing with found: ' + found);
 
   // debug purpose
-  preprocessor.stdout.on('data', function (data) {
+  fork.stdout.on('data', function (data) {
     console.debug('> ' + data);
   });
 
   // debug purpose
-  preprocessor.stderr.on('data', function (data) {
+  fork.stderr.on('data', function (data) {
     console.debug('>> ' + data);
   });
 
   // handle exit code
-  preprocessor.on('close', function (code) {
+  fork.on('close', function (code) {
     callback(code !== 0 ? code : null, plate);
   });
 }
@@ -231,24 +234,24 @@ function calcFeature(plate, callback) {
         return callback(); // no argument imply silent failback to next async.each
       }
 
-      var preprocessor = spawn('../PeroxiTracker_Matlab/onewellFeatGen.exe', // program path
+      var fork = spawn('../PeroxiTracker_Matlab/onewellFeatGen.exe', // program path
           [g_tmpFolder + plate + '/Tophat/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_feature.txt', // output file path
            g_tmpFolder + plate + '/Tophat/netHist.mat']); // input file from implicit output of step 5 
       console.log('>>> Processing: ' + file);
       
       // debug purpose
-      preprocessor.stdout.on('data', function (data) {
+      fork.stdout.on('data', function (data) {
         console.debug('> ' + data);
       });
 
       // debug purpose
-      preprocessor.stderr.on('data', function (data) {
+      fork.stderr.on('data', function (data) {
         console.debug('>> ' + data);
       });
 
       // handle exit code
-      preprocessor.on('close', function (code) {
+      fork.on('close', function (code) {
         callback( code !== 0 ? code : null);
       });
     }, function(err) {
@@ -376,6 +379,9 @@ function processPlate(plate) {
         return;
       }
       console.log('>>>>>>> Plate process complete: ' + plate);
+      
+      // shutdown this compute node after 5 minutes
+      setTimeout(shutdown, 5*60*1000);
     });
 }
 
@@ -439,6 +445,28 @@ function fetchPlate(plate) {
   });
 }
 
+function shutdown() {
+  var S = require('string');
+  var fs = require('fs');
+  var mc = require('azure-mgmt-compute');
+  var os = require("os");
+  
+  var pem = S(fs.readFileSync('azure-hsu.pem')).s;
+  var credential = mc.createCertificateCloudCredentials({
+    subscriptionId: g_subscriberID,
+    pem: pem
+  });
+  
+  var client = mc.createComputeManagementClient(credential);
+  client.virtualMachines.shutdown(g_serviceName, g_deploymentName,
+      os.hostname(), {PostShutdownAction: 'StoppedDeallocated'}, function (err) {
+    if (err) {
+      console.error(err);
+    }
+    process.exit(0);
+  });
+}
+
 /**
  *  main function
  */
@@ -450,6 +478,7 @@ function main() {
     fs.mkdirSync(g_tmpFolder);
   }
   
+  // ToDo: change to Azure Blob Queue to handle multiple instance 
   console.log('Fetching plate.json ...');
   // fetch plate list to be processed
   g_blob.getBlobToFile(g_container, 'plate.json', g_tmpFolder + 'plate.json', function (error, blob) {
