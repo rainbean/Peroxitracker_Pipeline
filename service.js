@@ -21,4 +21,4 @@ svc.on('uninstall',function(){
 
 svc.install();
 
-// svc.uninstall();
+//svc.uninstall();

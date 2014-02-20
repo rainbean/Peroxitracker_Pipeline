@@ -2,6 +2,7 @@
 var g_storageAccount = 'bioimage';
 var g_storageAcessKey = 't2cCFG4nKcwSp4NrnghpI9fnZZ3hR8YvEYshRocCAzXJ5u3dSEx+b5sA05URmKk1MOFwVwStHa+d1la6TMauxA==';
 var g_tmpFolder = '/tmp/';
+var g_runtimeFolder = '/AzureRuntime';
 var g_container = 'images';
 var g_subscriberID = '3f5b2a4b-ea60-4b1c-b36b-c85001f46ac8';
 var g_serviceName = 'Peroxitracker';
@@ -41,7 +42,7 @@ function enhanceImage(plate, callback) {
       }
 
       var fork = spawn('java', 
-          ['-jar', '../PeroxiTracker_Standalone/PeroJava.jar', // jar path
+          ['-jar', g_runtimeFolder + '/PeroxiTracker_Standalone/PeroJava.jar', // jar path
            g_tmpFolder + plate + '/' + file]); // input filepath
       console.log('>>> Processing: ' + file);
   
@@ -93,7 +94,7 @@ function countCells(plate, callback) {
         return callback(); // no argument imply silent failback to next async.each
       }
 
-      var fork = spawn('../PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
+      var fork = spawn(g_runtimeFolder + '/PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
           [g_tmpFolder + plate + '/DAPI/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_cell_obj_cords.txt']); // output file path
       console.log('>>> Processing: ' + file);
@@ -146,7 +147,7 @@ function calcTophat(plate, callback) {
         return callback(); // no argument imply silent success
       }
 
-      var fork = spawn('../PeroxiTracker_Matlab/onewellTophat.exe', // program path
+      var fork = spawn(g_runtimeFolder + '/PeroxiTracker_Matlab/onewellTophat.exe', // program path
           [g_tmpFolder + plate + '/FITC/' + file, // input file path
            g_tmpFolder + plate + '/Tophat/' + well[1] + '_' + well[2] + '_tophat.mat']); // output tophat file path
       console.log('>>> Processing: ' + file);
@@ -186,7 +187,7 @@ function calcHistorgram(plate, found, callback) {
   
   console.log('<=== Step 5: Content screening: calculate histogram ===>');
 
-  var fork = spawn('../PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
+  var fork = spawn(g_runtimeFolder + '/PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
       [g_tmpFolder + plate + '/Tophat', found]); // input path & union result of step 4 
   // implicit output is Tophat/netHist.mat
   console.log('>>> Processing with found: ' + found);
@@ -234,7 +235,7 @@ function calcFeature(plate, callback) {
         return callback(); // no argument imply silent failback to next async.each
       }
 
-      var fork = spawn('../PeroxiTracker_Matlab/onewellFeatGen.exe', // program path
+      var fork = spawn(g_runtimeFolder + '/PeroxiTracker_Matlab/onewellFeatGen.exe', // program path
           [g_tmpFolder + plate + '/Tophat/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_feature.txt', // output file path
            g_tmpFolder + plate + '/Tophat/netHist.mat']); // input file from implicit output of step 5 
