@@ -16,11 +16,31 @@ var credential = azure.createCertificateCloudCredentials({
 
 var vm = azure.createComputeManagementClient(credential);
 
-vm.virtualMachines.start('Peroxitracker', 'TestMatlab', 'node1', function (err) {
+
+// get service detail, which we need deployment name
+vm.hostedServices.getDetailed('Peroxitracker', function(err, data) {
+  if (err) {
+    console.log(err);
+    process.exit(1);
+  }
+  
+  //shutdown this compute node
+  vm.virtualMachines.shutdown('Peroxitracker', data.deployments[0].name,
+      'node1', {PostShutdownAction: 'StoppedDeallocated'}, function (err) {
+    if (err) {
+      console.error(err);
+    }
+    process.exit(0);
+  });
+});
+
+/*
+vm.virtualMachines.start('Peroxitracker', 'production', 'node1', function (err) {
   if (err) {
     console.error(err);
   }
 });
+*/
 
 /*
 vm.virtualMachines.shutdown('Peroxitracker', 'TestMatlab', 'node1', {PostShutdownAction: 'StoppedDeallocated'}, function (err) {

@@ -6,7 +6,6 @@ var g_runtimeFolder = '/AzureRuntime';
 var g_container = 'images';
 var g_subscriberID = '3f5b2a4b-ea60-4b1c-b36b-c85001f46ac8';
 var g_serviceName = 'Peroxitracker';
-var g_deploymentName = 'TestMatlab';
 var g_currenency = 2;
 
 // global variables
@@ -459,12 +458,22 @@ function shutdown() {
   });
   
   var client = mc.createComputeManagementClient(credential);
-  client.virtualMachines.shutdown(g_serviceName, g_deploymentName,
-      os.hostname(), {PostShutdownAction: 'StoppedDeallocated'}, function (err) {
+  
+  // get service detail, which we need deployment name
+  vm.hostedServices.getDetailed(g_serviceName, function(err, data) {
     if (err) {
-      console.error(err);
+      console.log(err);
+      process.exit(1);
     }
-    process.exit(0);
+    
+    //shutdown this compute node
+    client.virtualMachines.shutdown(g_serviceName, data.deployments[0].name,
+        os.hostname(), {PostShutdownAction: 'StoppedDeallocated'}, function (err) {
+      if (err) {
+        console.error(err);
+      }
+      process.exit(0);
+    });
   });
 }
 
