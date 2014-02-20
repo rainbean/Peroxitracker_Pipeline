@@ -501,5 +501,7 @@ function main() {
   });
 }
 
-main();
+//start process after 1 minutes on system boot
+setTimeout(main, 60*1000);
+//main(); 
 
