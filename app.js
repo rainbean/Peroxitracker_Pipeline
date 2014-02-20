@@ -452,7 +452,7 @@ function shutdown() {
   var mc = require('azure-mgmt-compute');
   var os = require("os");
   
-  var pem = S(fs.readFileSync('azure-hsu.pem')).s;
+  var pem = S(fs.readFileSync(g_runtimeFolder + '/Peroxitracker_Pipeline/azure-hsu.pem')).s;
   var credential = mc.createCertificateCloudCredentials({
     subscriptionId: g_subscriberID,
     pem: pem
