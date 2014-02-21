@@ -536,7 +536,17 @@ function main(callback) {
           console.warn('No plate to process');
           return callback('no data');
         }
-        fetchPlate(message[0].messagetext, callback);
+        fetchPlate(message[0].messagetext, function(err) {
+          if (!err) {
+            // when a plate is processed competely, remove it from MQ
+            mq.deleteMessage('plates', message[0].messageid, message[0].popreceipt, function(err) {
+              if (err) {
+                console.log('Failed to remove message: ' + err);
+              }
+            });
+          }
+          return callback(err);
+        });
       });
     }, callback); // end of async.whilst
   }

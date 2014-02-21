@@ -14,17 +14,26 @@ g_queue.createQueueIfNotExists('plates', function (err) {
   }
 });
 
+/*
+g_queue.clearMessages('plates', function(err) {
+  if (err) {
+    console.log('Failed to create message: ' + err);
+  }
+});
+*/
+
 g_queue.createMessage('plates', 'PBD GFP-Hoechst_LOPAC_2_1', function(err) {
   if (err) {
     console.log('Failed to create message: ' + err);
   }
-
-  g_queue.getMessages('plates', function(err, serverMessages) {
-    if (err) {
-      console.log('Failed to create message: ' + err);
-      return;
-    }
-    console.log(serverMessages);
-  });
 });
 
+/*
+g_queue.getMessages('plates', function(err, serverMessages) {
+  if (err) {
+    console.log('Failed to create message: ' + err);
+    return;
+  }
+  console.log(serverMessages);
+});
+*/
