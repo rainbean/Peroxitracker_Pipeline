@@ -356,7 +356,7 @@ function feedbackBlob(plate, callback) {
 /**
  * After images of a plate has been downloaded to local disk, process these images 
  */
-function processPlate(plate) {
+function processPlate(plate, callback) {
   var async = require('async');
 
   async.waterfall([
@@ -372,37 +372,34 @@ function processPlate(plate) {
       genCSV, // step 7: consolidate CSV file
       feedbackBlob // upload result back to Azure blob
     ],
-    // optional callback
     function(err, results) {
       if (err) {
         console.error('Failed to complete plate, error: ' + err);
-        return;
+        return callback(err);
       }
       console.log('>>>>>>> Plate process complete: ' + plate);
-      
-      // shutdown this compute node after 5 minutes
-      setTimeout(shutdown, 5*60*1000);
+      return callback();
     });
 }
 
 /**
  * Fetch a plate
  */
-function fetchPlate(plate) {
+function fetchPlate(plate, callback) {
   var S = require('string');
   var fs = require('fs');
   var async = require('async');
 
   console.log('Process plate: ' + plate);
-  g_blob.listBlobs(g_container, {prefix: plate /*, include: 'metadata'*/}, function(error, blobs) {
-    if (error) {
-      console.error('Failed to access Azure Blob: ' + error);
-      process.exit(1);
+  g_blob.listBlobs(g_container, {prefix: plate /*, include: 'metadata'*/}, function(err, blobs) {
+    if (err) {
+      console.error('Failed to access Azure Blob: ' + err);
+      return callback(err);
     }
     
     if (!blobs || blobs.length === 0) {
       console.warn('Failed to fetch plate images: ' + plate);
-      return;
+      return callback('no file');
     }
     
     // create temp folder
@@ -436,11 +433,11 @@ function fetchPlate(plate) {
       
     }, function (err, results) {
       if (err) {
-        console.error('Failed to fetch plate image: ' + error);
-        return;
+        console.error('Failed to fetch plate image: ' + err);
+        return callback(err);
       }
       
-      processPlate(plate);
+      processPlate(plate, callback);
     });
   });
 }
@@ -480,35 +477,72 @@ function shutdown() {
 /**
  *  main function
  */
-function main() {
+function main(callback) {
   var fs = require('fs');
+  var version = 2;
+  var async = require('async');
   
   // create temp folder
   if (!fs.existsSync(g_tmpFolder)) {
     fs.mkdirSync(g_tmpFolder);
   }
   
-  // ToDo: change to Azure Blob Queue to handle multiple instance 
-  console.log('Fetching plate.json ...');
-  // fetch plate list to be processed
-  g_blob.getBlobToFile(g_container, 'plate.json', g_tmpFolder + 'plate.json', function (error, blob) {
-    if (error) {
-      console.error('No plate list to be processed, or error occured to fetch it: ' + error);
-      return;
-    }
-    console.log('plate.json fetched');
-    
-    var plates = require(g_tmpFolder + 'plate.json');
-    if (!plates || !Array.isArray(plates)) {
-      console.error('failed to load plate.json');
-      return;
-    }
-    
-    for (var i=0; i< plates.length; i+=1) {
-      fetchPlate(plates[i]);
-    }
-  });
+  if (version === 1) {
+    /****************************
+     * V1: decide plates to process by a plate.json file, not scale-able
+     ****************************/
+    console.log('Fetching plate.json ...');
+    g_blob.getBlobToFile(g_container, 'plate.json', g_tmpFolder + 'plate.json', function (err, blob) {
+      if (err) {
+        console.error('No plate list to be processed, or error occured to fetch it: ' + err);
+        return callback(err);
+      }
+      console.log('plate.json fetched');
+      
+      var plates = require(g_tmpFolder + 'plate.json');
+      if (!plates || !Array.isArray(plates)) {
+        console.error('failed to load plate.json');
+        return callback('no data');
+      }
+      
+      async.eachSeries(plates, fetchPlate, callback);
+    });
+  } else if (version === 2) {
+    /****************************
+     * V2: decide plates to process by Azure Blob Queue, support multiple instance 
+     ****************************/
+    console.log('Fetching plate message queue ...');
+    var mq = azure.createQueueService(g_storageAccount, g_storageAcessKey);
+    var hasData = true;
+
+    mq.createQueueIfNotExists('plates', function (err) {
+      if (err) {
+        console.error('Failed to create queue: ' + err);
+        return callback(err);
+      }
+    });
+
+    async.whilst (hasData, function(callback) {
+      mq.getMessages('plates', function(err, message) {
+        if (err) {
+          hasData = false;
+          console.error('Failed to fetch message queue: ' + err);
+          return callback(err);
+        }
+        //console.log(serverMessages);
+        if (!message || !message.length) {
+          // no message to process
+          hasData = false;
+          console.warn('No plate to process');
+          return callback('no data');
+        }
+        fetchPlate(message[0].messagetext, callback);
+      });
+    }, callback); // end of async.whilst
+  }
 }
 
-main();
-
+main(function (err) {
+  // shutdown this compute node after 5 minutes
+  setTimeout(shutdown, 5*60*1000);
+});
