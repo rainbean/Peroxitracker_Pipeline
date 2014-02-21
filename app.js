@@ -522,33 +522,38 @@ function main(callback) {
       }
     });
 
-    async.whilst (hasData, function(callback) {
-      mq.getMessages('plates', function(err, message) {
-        if (err) {
-          hasData = false;
-          console.error('Failed to fetch message queue: ' + err);
-          return callback(err);
-        }
-        //console.log(serverMessages);
-        if (!message || !message.length) {
-          // no message to process
-          hasData = false;
-          console.warn('No plate to process');
-          return callback('no data');
-        }
-        fetchPlate(message[0].messagetext, function(err) {
-          if (!err) {
-            // when a plate is processed competely, remove it from MQ
-            mq.deleteMessage('plates', message[0].messageid, message[0].popreceipt, function(err) {
-              if (err) {
-                console.log('Failed to remove message: ' + err);
-              }
-            });
+    async.whilst(
+      function () {
+        return hasData;
+      },
+      function(callback) {
+        mq.getMessages('plates', function(err, message) {
+          if (err) {
+            hasData = false;
+            console.error('Failed to fetch message queue: ' + err);
+            return callback(err);
           }
-          return callback(err);
+          //console.log(serverMessages);
+          if (!message || !message.length) {
+            // no message to process
+            hasData = false;
+            console.warn('No plate to process');
+            return callback('no data');
+          }
+          fetchPlate(message[0].messagetext, function(err) {
+            if (!err) {
+              // when a plate is processed competely, remove it from MQ
+              mq.deleteMessage('plates', message[0].messageid, message[0].popreceipt, function(err) {
+                if (err) {
+                  console.log('Failed to remove message: ' + err);
+                }
+              });
+            }
+            return callback(err);
+          });
         });
-      });
-    }, callback); // end of async.whilst
+      }, callback
+    ); // end of async.whilst
   }
 }
 
