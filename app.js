@@ -421,11 +421,19 @@ function fetchPlate(plate, callback) {
         return callback(); // ignore this file silently
       }
       
+      var n = blob.name.lastIndexOf('/');
+      if (n === -1) {
+        console.warn('Invalid blob path: ' + blob.name);
+        return callback();
+      }
+      var filename = blob.name.substr(n+1);
+      
       fs.stat(g_tmpFolder + blob.name, function(err, stats) {
         if (err || stats.size != blob.properties['content-length']) {
           // file not ready, fetch file to local temporary storage
           console.log('Download ' + blob.name);
-          g_blob.getBlobToFile(g_container, blob.name, g_tmpFolder + blob.name, callback);
+          // truncate intermedia subfolders
+          g_blob.getBlobToFile(g_container, blob.name, g_tmpFolder + plate + '/' + filename, callback);
         } else {
           return callback(); // skip file download
         }
