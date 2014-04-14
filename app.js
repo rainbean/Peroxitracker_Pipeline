@@ -1,7 +1,7 @@
 // global configuration
 var g_storageAccount = 'bioimage';
 var g_storageAcessKey = 't2cCFG4nKcwSp4NrnghpI9fnZZ3hR8YvEYshRocCAzXJ5u3dSEx+b5sA05URmKk1MOFwVwStHa+d1la6TMauxA==';
-var g_tmpFolder = '/tmp/';
+var g_tmpFolder = 'd:/';
 var g_runtimeFolder = '/AzureRuntime';
 var g_container = 'images';
 var g_subscriberID = '3f5b2a4b-ea60-4b1c-b36b-c85001f46ac8';
@@ -567,5 +567,5 @@ function main(callback) {
 
 main(function (err) {
   // shutdown this compute node after 5 minutes
-  setTimeout(shutdown, 5*60*1000);
+  //setTimeout(shutdown, 5*60*1000);
 });
