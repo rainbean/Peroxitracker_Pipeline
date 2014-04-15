@@ -57,7 +57,12 @@ function enhanceImage(plate, callback) {
   
       // handle exit code
       fork.on('close', function (code) {
-        callback( code !== 0 ? code : null);
+        if (code) {
+          // log the problematic files for diagnostic. 
+          console.error('Failed to process [' + plate + '] [' + file + '], ignored it');
+        }
+        // callback( code !== 0 ? code : null);
+        callback();
       });
     }, function(err) {
       // if any of the saves produced an error, err would equal that error
