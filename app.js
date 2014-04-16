@@ -276,6 +276,9 @@ function getFileLines(path, callback) {
         lines++; // line feed
       }
     }
+  }).on('error', function() {
+    console.error('Failed to open cell file: ' + path);
+    callback(0); // treat as no cell counted.
   }).on('end', function() {
     callback(lines);
   });
