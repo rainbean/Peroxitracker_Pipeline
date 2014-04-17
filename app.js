@@ -613,5 +613,5 @@ function main(callback) {
 
 main(function (err) {
   // shutdown this compute node after 5 minutes
-  //setTimeout(shutdown, 5*60*1000);
+  setTimeout(shutdown, 5*60*1000);
 });
