@@ -383,18 +383,46 @@ function feedbackBlob(plate, callback) {
   });
 }
 
+function copyFile(source, target, cb) {
+  var fs = require('fs');
+  var cbCalled = false;
+
+  var rd = fs.createReadStream(source);
+  rd.on("error", done);
+
+  var wr = fs.createWriteStream(target);
+  wr.on("error", done);
+  wr.on("close", function(ex) {
+    done();
+  });
+  rd.pipe(wr);
+
+  function done(err) {
+    if (!cbCalled) {
+      cb(err);
+      cbCalled = true;
+    }
+  }
+}
+
 /**
  * Archive debug logger back to online storage, and mark file processed
  */
 function feedbackLogger(plate, callback) {
-  g_blob.putBlockBlobFromFile(g_container, plate + '.log', 'debug.log', function (err, blob) {
+  copyFile('debug.log', g_tmpFolder + plate + '.log', function (err) {
     if (err) {
-      logger.error('Failed to upload debug log');
-      return callback(err);
+      logger.error('Failed to copy debug log: ' + err);
+      return callback();
     }
+    g_blob.putBlockBlobFromFile(g_container, plate + '.log', g_tmpFolder + plate + '.log', function (err, blob) {
+      if (err) {
+        logger.error('Failed to upload debug log: ' + err);
+        return callback();
+      }
 
-    logger.info('Debug log uploaded');
-    callback();
+      logger.info('Debug log uploaded');
+      callback();
+    });
   });
 }
 
@@ -611,7 +639,18 @@ function main(callback) {
   }
 }
 
+/*
 main(function (err) {
   // shutdown this compute node after 5 minutes
   setTimeout(shutdown, 5*60*1000);
 });
+*/
+
+logger.info('this is a test');
+logger.log('this is a test');
+logger.debug('this is a test');
+logger.log('this is a test');
+
+feedback('newtest', function() {});
+
+logger.log('this is a test');
