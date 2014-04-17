@@ -384,6 +384,21 @@ function feedbackBlob(plate, callback) {
 }
 
 /**
+ * Archive debug logger back to online storage, and mark file processed
+ */
+function feedbackLogger(plate, callback) {
+  g_blob.putBlockBlobFromFile(g_container, plate + '.log', 'debug.log', function (err, blob) {
+    if (err) {
+      logger.error('Failed to upload debug log');
+      return callback(err);
+    }
+
+    logger.info('Debug log uploaded');
+    callback();
+  });
+}
+
+/**
  * After images of a plate has been downloaded to local disk, process these images 
  */
 function processPlate(plate, callback) {
@@ -400,7 +415,8 @@ function processPlate(plate, callback) {
       calcHistorgram, // step 5: calculate histogram
       calcFeature, // step 6: calculate feature set
       genCSV, // step 7: consolidate CSV file
-      feedbackBlob // upload result back to Azure blob
+      feedbackBlob, // upload result back to Azure blob
+      feedbackLogger // upload debug logger to Azure blob 
     ],
     function(err, results) {
       if (err) {

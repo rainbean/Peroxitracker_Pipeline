@@ -26,7 +26,6 @@ plates = [
 'H1098495', 
 'H1098497', 
 'H1098499', 
-'H1098501', 
 'H1098503', 
 'H1098505', 
 'H1098507', 
@@ -51,6 +50,17 @@ g_queue.getMessages('plates', function(err, serverMessages) {
     console.log('Failed to create message: ' + err);
     return;
   }
-  console.log(serverMessages);
+  for (var i=0;i < serverMessages.length; i+=1) {
+	console.log(serverMessages[i]);
+  }
+});
+*/
+
+/*
+g_queue.clearMessages('plates', function(err, serverMessages) {
+  if (err) {
+    console.log('Failed to create message: ' + err);
+    return;
+  }
 });
 */
