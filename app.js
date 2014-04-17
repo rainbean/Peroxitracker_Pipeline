@@ -369,9 +369,9 @@ function genCSV(plate, callback) {
 }
 
 /**
- * Archive result back to online storage, and mark file processed
+ * Archive result back to online storage
  */
-function feedbackBlob(plate, callback) {
+function feedbackCSV(plate, callback) {
   g_blob.putBlockBlobFromFile(g_container, plate + '.csv', g_tmpFolder + plate + '.csv', function (err, blob) {
     if (err) {
       logger.error('Failed to upload CSV file');
@@ -383,6 +383,38 @@ function feedbackBlob(plate, callback) {
   });
 }
 
+/**
+ * Archive FITC folder back to online storage
+ */
+function feedbackFITC(plate, callback) {
+  var fs = require('fs');
+  var async = require('async');
+
+  // list
+  fs.readdir(g_tmpFolder + plate + '/FITC', function (err, files) {
+    if (err) {
+      logger.error('Failed to list FITC subfolder of plate: ' + plate);
+      return callback();
+    }
+    
+    async.eachLimit(files, g_currenency, function (file, callback) {
+      g_blob.putBlockBlobFromFile(g_container, plate + '_FITC/' + file, g_tmpFolder + plate + '/FITC/' + file, function (err, blob) {
+        if (err) {
+          logger.warn('Failed to upload FITC file: ' + file);
+        }
+        callback();
+      });
+    }, function(err) {
+      // if any of the saves produced an error, err would equal that error
+      return callback();
+    });
+  });
+  
+}
+
+/**
+ * helper function to copy file
+ */
 function copyFile(source, target, cb) {
   var fs = require('fs');
   var cbCalled = false;
@@ -406,7 +438,7 @@ function copyFile(source, target, cb) {
 }
 
 /**
- * Archive debug logger back to online storage, and mark file processed
+ * Archive debug logger back to online storage
  */
 function feedbackLogger(plate, callback) {
   copyFile('debug.log', g_tmpFolder + plate + '.log', function (err) {
@@ -443,7 +475,8 @@ function processPlate(plate, callback) {
       calcHistorgram, // step 5: calculate histogram
       calcFeature, // step 6: calculate feature set
       genCSV, // step 7: consolidate CSV file
-      feedbackBlob, // upload result back to Azure blob
+      feedbackCSV, // upload result back to Azure blob
+      feedbackFITC, // upload FITC result to Azure blob
       feedbackLogger // upload debug logger to Azure blob 
     ],
     function(err, results) {
@@ -465,7 +498,8 @@ function fetchPlate(plate, callback) {
   var async = require('async');
 
   logger.info('Process plate: ' + plate);
-  g_blob.listBlobs(g_container, {prefix: plate /*, include: 'metadata'*/}, function(err, blobs) {
+  // only handle plate folder, not other file or folder with other subfix.
+  g_blob.listBlobs(g_container, {prefix: plate + '/' /*, include: 'metadata'*/}, function(err, blobs) {
     if (err) {
       logger.error('Failed to access Azure Blob: ' + err);
       return callback(err);
