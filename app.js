@@ -11,8 +11,30 @@ var g_currenency = 2;
 // global variables
 var azure = require('azure');
 var g_blob = azure.createBlobService(g_storageAccount, g_storageAcessKey);
-var log4js = require('log4js');
-log4js.replaceConsole();
+
+/**
+ * Configure Logger for debug purpose, save to console as well
+ */
+function initLogger() {
+  var log4js = require('log4js');
+  var fs = require('fs');
+
+  try {
+    fs.unlinkSync('debug.log');
+  } catch (e) {
+    //doesn't really matter if it failed
+  }
+
+  log4js.configure({
+    appenders: [
+      { type: 'console' },
+      { type: 'file', filename: 'debug.log', category: 'logger' }
+    ]
+  });
+  return log4js.getLogger('logger');
+}
+var logger = initLogger();
+
 
 /**
  * Preprocessing: enhance image's quality  
@@ -24,12 +46,12 @@ function enhanceImage(plate, callback) {
   //regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
-  console.log('<=== Step 1&2: Enhance Image Quality ===>');
+  logger.info('<=== Step 1&2: Enhance Image Quality ===>');
   
   // list
   fs.readdir(g_tmpFolder + plate, function (err, files) {
     if (err) {
-      console.error('Failed to list DAPI subfolder of plate: ' + plate);
+      logger.error('Failed to list DAPI subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -43,23 +65,23 @@ function enhanceImage(plate, callback) {
       var fork = spawn('java', 
           ['-jar', g_runtimeFolder + '/PeroxiTracker_Standalone/PeroJava.jar', // jar path
            g_tmpFolder + plate + '/' + file]); // input filepath
-      console.log('>>> Processing: ' + file);
+      logger.info('>>> Processing: ' + file);
   
       // debug purpose
       fork.stdout.on('data', function (data) {
-        console.debug(' ' + data);
+        logger.debug(' ' + data);
       });
   
       // debug purpose
       fork.stderr.on('data', function (data) {
-        console.debug('>> ' + data);
+        logger.debug('>> ' + data);
       });
   
       // handle exit code
       fork.on('close', function (code) {
         if (code) {
           // log the problematic files for diagnostic. 
-          console.error('Failed to process [' + plate + '] [' + file + '], ignored it');
+          logger.error('Failed to process [' + plate + '] [' + file + '], ignored it');
         }
         // callback( code !== 0 ? code : null);
         callback();
@@ -81,12 +103,12 @@ function countCells(plate, callback) {
   // regular express to match 'A - 3(fld 1 wv DAPI - DAPI).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
-  console.log('<=== Step 3: Content screening: count # of cells ===>');
+  logger.info('<=== Step 3: Content screening: count # of cells ===>');
   
   // list
   fs.readdir(g_tmpFolder + plate + '/DAPI', function (err, files) {
     if (err) {
-      console.error('Failed to list DAPI subfolder of plate: ' + plate);
+      logger.error('Failed to list DAPI subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -94,23 +116,23 @@ function countCells(plate, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
-        console.warn('Invalid filename format, ignored: ' + file);
+        logger.warn('Invalid filename format, ignored: ' + file);
         return callback(); // no argument imply silent failback to next async.each
       }
 
       var fork = spawn(g_runtimeFolder + '/PeroxiTracker_Matlab/onewellCellCounting.exe', // program path
           [g_tmpFolder + plate + '/DAPI/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_cell_obj_cords.txt']); // output file path
-      console.log('>>> Processing: ' + file);
+      logger.info('>>> Processing: ' + file);
       
       // debug purpose
       fork.stdout.on('data', function (data) {
-        console.debug('> ' + data);
+        logger.debug('> ' + data);
       });
 
       // debug purpose
       fork.stderr.on('data', function (data) {
-        console.debug('>> ' + data);
+        logger.debug('>> ' + data);
       });
 
       // handle exit code
@@ -134,12 +156,12 @@ function calcTophat(plate, callback) {
   // regular express to match 'A - 3(fld 1 wv FITC - FITC).tif', with result 'A' and '3'
   var pattern = new RegExp(/^(.+) - (.+)\(.+\).tif$/);
   
-  console.log('<=== Step 4: Content screening: calculate tophat of wells ===>');
+  logger.info('<=== Step 4: Content screening: calculate tophat of wells ===>');
 
   // list
   fs.readdir(g_tmpFolder + plate + '/FITC', function (err, files) {
     if (err) {
-      console.error('Failed to list FITC subfolder of plate: ' + plate);
+      logger.error('Failed to list FITC subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -147,23 +169,23 @@ function calcTophat(plate, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
-        console.log('Invalid filename format, ignored: ' + file);
+        logger.info('Invalid filename format, ignored: ' + file);
         return callback(); // no argument imply silent success
       }
 
       var fork = spawn(g_runtimeFolder + '/PeroxiTracker_Matlab/onewellTophat.exe', // program path
           [g_tmpFolder + plate + '/FITC/' + file, // input file path
            g_tmpFolder + plate + '/Tophat/' + well[1] + '_' + well[2] + '_tophat.mat']); // output tophat file path
-      console.log('>>> Processing: ' + file);
+      logger.info('>>> Processing: ' + file);
       
       // debug purpose
       fork.stdout.on('data', function (data) {
-        console.debug('> ' + data);
+        logger.debug('> ' + data);
       });
 
       // debug purpose
       fork.stderr.on('data', function (data) {
-        console.debug('>> ' + data);
+        logger.debug('>> ' + data);
       });
 
       // handle exit code
@@ -189,21 +211,21 @@ function calcHistorgram(plate, found, callback) {
   var async = require('async');
   var spawn = require('child_process').spawn;
   
-  console.log('<=== Step 5: Content screening: calculate histogram ===>');
+  logger.info('<=== Step 5: Content screening: calculate histogram ===>');
 
   var fork = spawn(g_runtimeFolder + '/PeroxiTracker_Matlab/onePlateHistCalc.exe', // program path
       [g_tmpFolder + plate + '/Tophat', found]); // input path & union result of step 4 
   // implicit output is Tophat/netHist.mat
-  console.log('>>> Processing with found: ' + found);
+  logger.info('>>> Processing with found: ' + found);
 
   // debug purpose
   fork.stdout.on('data', function (data) {
-    console.debug('> ' + data);
+    logger.debug('> ' + data);
   });
 
   // debug purpose
   fork.stderr.on('data', function (data) {
-    console.debug('>> ' + data);
+    logger.debug('>> ' + data);
   });
 
   // handle exit code
@@ -222,12 +244,12 @@ function calcFeature(plate, callback) {
   // regular express to match 'A_3_tophat.mat', with result 'A' and '3'
   var pattern = new RegExp(/^(.+)_(.+)_tophat.mat$/);
 
-  console.log('<=== Step 6: Content screening: calculate feature set ===>');
+  logger.info('<=== Step 6: Content screening: calculate feature set ===>');
   
   // list
   fs.readdir(g_tmpFolder + plate + '/Tophat', function (err, files) {
     if (err) {
-      console.error('Failed to list Tophat subfolder of plate: ' + plate);
+      logger.error('Failed to list Tophat subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -235,7 +257,7 @@ function calcFeature(plate, callback) {
       var well = file.match(pattern);
       if (!well) {
         // not matched file name, ignore it;
-        console.warn('Invalid filename format, ignored: ' + file);
+        logger.warn('Invalid filename format, ignored: ' + file);
         return callback(); // no argument imply silent failback to next async.each
       }
 
@@ -243,16 +265,16 @@ function calcFeature(plate, callback) {
           [g_tmpFolder + plate + '/Tophat/' + file, // input file path
            g_tmpFolder + plate + '/Result/' + well[1] + '_' + well[2] + '_feature.txt', // output file path
            g_tmpFolder + plate + '/Tophat/netHist.mat']); // input file from implicit output of step 5 
-      console.log('>>> Processing: ' + file);
+      logger.info('>>> Processing: ' + file);
       
       // debug purpose
       fork.stdout.on('data', function (data) {
-        console.debug('> ' + data);
+        logger.debug('> ' + data);
       });
 
       // debug purpose
       fork.stderr.on('data', function (data) {
-        console.debug('>> ' + data);
+        logger.debug('>> ' + data);
       });
 
       // handle exit code
@@ -277,7 +299,7 @@ function getFileLines(path, callback) {
       }
     }
   }).on('error', function() {
-    console.error('Failed to open cell file: ' + path);
+    logger.error('Failed to open cell file: ' + path);
     callback(0); // treat as no cell counted.
   }).on('end', function() {
     callback(lines);
@@ -295,7 +317,7 @@ function genCSV(plate, callback) {
   //regular express to match 'A_1_feature.txt', with result 'A' and '1'
   var pattern = new RegExp(/^(.+)_(.+)_feature.txt$/);
   
-  console.log('<=== Step 7: Consolidate CSV file ===>');
+  logger.info('<=== Step 7: Consolidate CSV file ===>');
   
   // unlink file first
   fs.unlink(g_tmpFolder + plate + '.csv', function(err) {});
@@ -303,7 +325,7 @@ function genCSV(plate, callback) {
   // list
   fs.readdir(g_tmpFolder + plate + '/Result', function (err, files) {
     if (err) {
-      console.error('Failed to list Result subfolder of plate: ' + plate);
+      logger.error('Failed to list Result subfolder of plate: ' + plate);
       return callback(err);
     }
     
@@ -325,7 +347,7 @@ function genCSV(plate, callback) {
         
         fs.readFile(g_tmpFolder + plate + '/Result/' + file, function(err, data) {
           if (err) {
-            console.error('Failed to read feature: ' + file);
+            logger.error('Failed to read feature: ' + file);
             return callback(err);
           }
           
@@ -352,11 +374,11 @@ function genCSV(plate, callback) {
 function feedbackBlob(plate, callback) {
   g_blob.putBlockBlobFromFile(g_container, plate + '.csv', g_tmpFolder + plate + '.csv', function (err, blob) {
     if (err) {
-      console.error('Failed to upload CSV file');
+      logger.error('Failed to upload CSV file');
       return callback(err);
     }
     
-    console.log('CSV result uploaded');
+    logger.info('CSV result uploaded');
     callback();
   });
 }
@@ -382,10 +404,10 @@ function processPlate(plate, callback) {
     ],
     function(err, results) {
       if (err) {
-        console.error('Failed to complete plate, error: ' + err);
+        logger.error('Failed to complete plate, error: ' + err);
         return callback(err);
       }
-      console.log('>>>>>>> Plate process complete: ' + plate);
+      logger.info('>>>>>>> Plate process complete: ' + plate);
       return callback();
     });
 }
@@ -398,15 +420,15 @@ function fetchPlate(plate, callback) {
   var fs = require('fs');
   var async = require('async');
 
-  console.log('Process plate: ' + plate);
+  logger.info('Process plate: ' + plate);
   g_blob.listBlobs(g_container, {prefix: plate /*, include: 'metadata'*/}, function(err, blobs) {
     if (err) {
-      console.error('Failed to access Azure Blob: ' + err);
+      logger.error('Failed to access Azure Blob: ' + err);
       return callback(err);
     }
     
     if (!blobs || blobs.length === 0) {
-      console.warn('Failed to fetch plate images: ' + plate);
+      logger.warn('Failed to fetch plate images: ' + plate);
       return callback('no file');
     }
     
@@ -421,9 +443,9 @@ function fetchPlate(plate, callback) {
 
     // Async download file in parallel
     async.mapLimit(blobs, g_currenency, function (blob, callback) {
-      //console.log(blob.name);
-      //console.log(blob.metadata);
-      //console.log(blob.properties);
+      //logger.info(blob.name);
+      //logger.info(blob.metadata);
+      //logger.info(blob.properties);
       
       if (S(blob.name).contains('enhanced') || !S(blob.name).endsWith('.tif')) {
         return callback(); // ignore this file silently
@@ -431,7 +453,7 @@ function fetchPlate(plate, callback) {
       
       var n = blob.name.lastIndexOf('/');
       if (n === -1) {
-        console.warn('Invalid blob path: ' + blob.name);
+        logger.warn('Invalid blob path: ' + blob.name);
         return callback();
       }
       var filename = blob.name.substr(n+1);
@@ -439,7 +461,7 @@ function fetchPlate(plate, callback) {
       fs.stat(g_tmpFolder + blob.name, function(err, stats) {
         if (err || stats.size != blob.properties['content-length']) {
           // file not ready, fetch file to local temporary storage
-          console.log('Download ' + blob.name);
+          logger.info('Download ' + blob.name);
           // truncate intermedia subfolders
           g_blob.getBlobToFile(g_container, blob.name, g_tmpFolder + plate + '/' + filename, callback);
         } else {
@@ -449,7 +471,7 @@ function fetchPlate(plate, callback) {
       
     }, function (err, results) {
       if (err) {
-        console.error('Failed to fetch plate image: ' + err);
+        logger.error('Failed to fetch plate image: ' + err);
         return callback(err);
       }
       
@@ -475,7 +497,7 @@ function shutdown() {
   // get service detail, which we need deployment name
   client.hostedServices.getDetailed(g_serviceName, function(err, data) {
     if (err) {
-      console.log(err);
+      logger.info(err);
       process.exit(1);
     }
     
@@ -483,7 +505,7 @@ function shutdown() {
     client.virtualMachines.shutdown(g_serviceName, data.deployments[0].name,
         os.hostname(), {postShutdownAction: 'StoppedDeallocated'}, function (err) {
       if (err) {
-        console.error(err);
+        logger.error(err);
       }
       process.exit(0);
     });
@@ -507,17 +529,17 @@ function main(callback) {
     /****************************
      * V1: decide plates to process by a plate.json file, not scale-able
      ****************************/
-    console.log('Fetching plate.json ...');
+    logger.info('Fetching plate.json ...');
     g_blob.getBlobToFile(g_container, 'plate.json', g_tmpFolder + 'plate.json', function (err, blob) {
       if (err) {
-        console.error('No plate list to be processed, or error occured to fetch it: ' + err);
+        logger.error('No plate list to be processed, or error occured to fetch it: ' + err);
         return callback(err);
       }
-      console.log('plate.json fetched');
+      logger.info('plate.json fetched');
       
       var plates = require(g_tmpFolder + 'plate.json');
       if (!plates || !Array.isArray(plates)) {
-        console.error('failed to load plate.json');
+        logger.error('failed to load plate.json');
         return callback('no data');
       }
       
@@ -527,13 +549,13 @@ function main(callback) {
     /****************************
      * V2: decide plates to process by Azure Blob Queue, support multiple instance 
      ****************************/
-    console.log('Fetching plate message queue ...');
+    logger.info('Fetching plate message queue ...');
     var mq = azure.createQueueService(g_storageAccount, g_storageAcessKey);
     var hasData = true;
 
     mq.createQueueIfNotExists('plates', function (err) {
       if (err) {
-        console.error('Failed to create queue: ' + err);
+        logger.error('Failed to create queue: ' + err);
         return callback(err);
       }
     });
@@ -546,14 +568,14 @@ function main(callback) {
         mq.getMessages('plates', function(err, message) {
           if (err) {
             hasData = false;
-            console.error('Failed to fetch message queue: ' + err);
+            logger.error('Failed to fetch message queue: ' + err);
             return callback(err);
           }
-          //console.log(serverMessages);
+          //logger.info(serverMessages);
           if (!message || !message.length) {
             // no message to process
             hasData = false;
-            console.warn('No plate to process');
+            logger.warn('No plate to process');
             return callback('no data');
           }
           fetchPlate(message[0].messagetext, function(err) {
@@ -561,7 +583,7 @@ function main(callback) {
               // when a plate is processed competely, remove it from MQ
               mq.deleteMessage('plates', message[0].messageid, message[0].popreceipt, function(err) {
                 if (err) {
-                  console.log('Failed to remove message: ' + err);
+                  logger.info('Failed to remove message: ' + err);
                 }
               });
             }
