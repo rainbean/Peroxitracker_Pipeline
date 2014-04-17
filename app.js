@@ -639,18 +639,8 @@ function main(callback) {
   }
 }
 
-/*
 main(function (err) {
   // shutdown this compute node after 5 minutes
   setTimeout(shutdown, 5*60*1000);
 });
-*/
 
-logger.info('this is a test');
-logger.log('this is a test');
-logger.debug('this is a test');
-logger.log('this is a test');
-
-feedback('newtest', function() {});
-
-logger.log('this is a test');
