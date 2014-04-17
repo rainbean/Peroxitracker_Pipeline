@@ -6,7 +6,7 @@ var g_runtimeFolder = '/AzureRuntime';
 var g_container = 'images';
 var g_subscriberID = '3f5b2a4b-ea60-4b1c-b36b-c85001f46ac8';
 var g_serviceName = 'Peroxitracker';
-var g_currenency = os.cpus().length; // change threads to # of cpu cores
+var g_currenency = 1;
 
 // global variables
 var azure = require('azure');
@@ -563,6 +563,9 @@ function main(callback) {
   var fs = require('fs');
   var version = 2;
   var async = require('async');
+  var os = require('os');
+  
+  g_currenency = os.cpus().length; // change threads to # of cpu cores
 
   // create temp folder
   if (!fs.existsSync(g_tmpFolder)) {
