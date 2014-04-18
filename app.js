@@ -20,7 +20,7 @@ function initLogger() {
   var fs = require('fs');
 
   try {
-    fs.unlinkSync('debug.log');
+    fs.unlinkSync(g_tmpFolder + 'debug.log');
   } catch (e) {
     //doesn't really matter if it failed
   }
@@ -28,7 +28,7 @@ function initLogger() {
   log4js.configure({
     appenders: [
       { type: 'console' },
-      { type: 'file', filename: 'debug.log', category: 'logger' }
+      { type: 'file', filename: g_tmpFolder + 'debug.log', category: 'logger' }
     ]
   });
   return log4js.getLogger('logger');
@@ -441,7 +441,7 @@ function copyFile(source, target, cb) {
  * Archive debug logger back to online storage
  */
 function feedbackLogger(plate, callback) {
-  copyFile('debug.log', g_tmpFolder + plate + '.log', function (err) {
+  copyFile(g_tmpFolder + 'debug.log', g_tmpFolder + plate + '.log', function (err) {
     if (err) {
       logger.error('Failed to copy debug log: ' + err);
       return callback();
