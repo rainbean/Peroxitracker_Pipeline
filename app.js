@@ -379,7 +379,7 @@ function feedbackCSV(plate, callback) {
     }
     
     logger.info('CSV result uploaded');
-    callback();
+    callback(err, plate);
   });
 }
 
@@ -402,11 +402,11 @@ function feedbackFITC(plate, callback) {
         if (err) {
           logger.warn('Failed to upload FITC file: ' + file);
         }
-        callback();
+        callback(err, plate);
       });
     }, function(err) {
       // if any of the saves produced an error, err would equal that error
-      return callback();
+      return callback(err, plate);
     });
   });
   
@@ -453,7 +453,7 @@ function feedbackLogger(plate, callback) {
       }
 
       logger.info('Debug log uploaded');
-      callback();
+      callback(err, plate);
     });
   });
 }
